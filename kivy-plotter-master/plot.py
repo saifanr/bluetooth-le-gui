@@ -44,7 +44,7 @@ class ArrowList(Widget):
         self.plot = begin_series.plot
 
         super(ArrowList, self).__init__(**kwargs)
-        
+
         self.arrows = InstructionGroup()
         self.arrows_translate = Translate()
         self.canvas.add(self.arrows)
@@ -123,10 +123,10 @@ class Series(Widget):
         kwargs['size_hint'] = (None, None)
         self.plot = plot
         super(Series, self).__init__(**kwargs)
-        
+
         self.highlights = InstructionGroup()
         self.highlights_translate = Translate()
-        
+
         self.col_highlights = InstructionGroup()
         self.col_highlights_translate = Translate()
 
@@ -193,7 +193,7 @@ class Series(Widget):
 
             display_pos = [int(v) for v in self.plot.to_display_point(bar_x, bar_min_y)]
             display_size = [int(v) for v in (self.tick_width, self.plot.to_display_point(bar_x, bar_max_y)[1] - display_pos[1])]
-            
+
             if self.marker == 'tick':
                 self.series.add(Rectangle(pos = display_pos, size = display_size))
             elif self.marker == 'plus':
@@ -282,14 +282,14 @@ class Plot(Widget):
     bottom_margin = NumericProperty(25)
     right_margin = NumericProperty(0)
     top_margin = NumericProperty(0)
-    x_axis_title = StringProperty(None) 
-    y_axis_title = StringProperty(None)
+    x_axis_title = StringProperty("Voltage (V)")
+    y_axis_title = StringProperty("Current (I)")
     text_color = ListProperty([0,0,0])
     x_axis_title_texture = None
     y_axis_title_texture = None
 
     def __init__(self, **kwargs):
-        
+
         # these can easily be refactored to all use the same translate
         self.ticks = InstructionGroup()
         self.tick_translate = Translate()
@@ -303,7 +303,7 @@ class Plot(Widget):
         self.y_axis_label = InstructionGroup()
         self.y_axis_label_translate = Translate()
 
-        
+
         super(Plot, self).__init__(**kwargs)
         self.canvas.add(self.ticks)
         self.canvas.add(self.border)
@@ -320,7 +320,7 @@ class Plot(Widget):
         self.border_translate.xy = self.x, self.y
         self.x_axis_label_translate.xy = self.x, self.y
         self.y_axis_label_translate.xy = self.x, self.y
-        
+
     def on_viewport(self, instance, value):
         if value is None or len(value) != 4: return
         self.vp_width_convert = (float(self.width)-self.left_margin-self.right_margin)/(value[2] - value[0])
@@ -347,7 +347,7 @@ class Plot(Widget):
                 start = self.to_display_point(self.viewport[0], y)
                 stop = self.to_display_point(self.viewport[2], y)
                 self.ticks.add(Line(points=[start[0], start[1], stop[0], stop[1]]))
-        
+
         self.ticks.add(PopMatrix())
 
     def draw_border(self):
@@ -367,7 +367,7 @@ class Plot(Widget):
         self.x_axis_label.add(self.x_axis_label_translate)
         if self.x_axis_title_texture is not None:
             self.x_axis_label.add(
-                        Rectangle(pos = (.5*self.width - .5*self.x_axis_title_texture.size[0], 0), 
+                        Rectangle(pos = (.5*self.width - .5*self.x_axis_title_texture.size[0], 0),
                             size = self.x_axis_title_texture.size,
                             texture=self.x_axis_title_texture))
         self.x_axis_label.add(PopMatrix())
@@ -378,7 +378,7 @@ class Plot(Widget):
 
         self.y_axis_label.add(self.y_axis_label_translate)
 
-        
+
 
 
         if self.y_axis_title_texture is not None:
@@ -398,8 +398,8 @@ class Plot(Widget):
                             texture = self.y_axis_title_texture,
                             ))
 
-        
-        
+
+
         self.y_axis_label.add(PopMatrix())
 
 
@@ -412,7 +412,7 @@ class Plot(Widget):
         self.y_axis_title_texture = l.texture
 
     def on_x_axis_title(self, instance, value):
-        if value is None: 
+        if value is None:
             self.x_axis_title_texture = None
             return
         l = Label(text = value)
@@ -435,10 +435,10 @@ class SeriesController(Widget):
 
     # determines where on the y_axis series show up if they don't have y data
     x_only_field_y_hints = [[],
-                            [.75], 
-                            [.6, .8], 
-                            [.4, .6, .8], 
-                            [.2, .4, .6, .8], 
+                            [.75],
+                            [.6, .8],
+                            [.4, .6, .8],
+                            [.2, .4, .6, .8],
                             [.1, .3, .5, .7, .9],
                             ]
 
@@ -456,7 +456,7 @@ class SeriesController(Widget):
             if is_x_only and label not in self.x_only_fields: self.x_only_fields.append(label)
         t = self.series_dict[label]
         if t.data is None: t.data = []
-        if is_x_only: 
+        if is_x_only:
             t.data = t.data + self.reshape_x_only_data(label, xy_data)
         else:
             t.data = t.data + xy_data
@@ -540,7 +540,7 @@ class SeriesController(Widget):
 
     def add_arrows(self, start_label, end_label, x_ranges):
         if (start_label, end_label) not in self.arrows:
-            self.arrows[(start_label, end_label)] = ArrowList(self.series_dict[start_label], self.series_dict[end_label], x_ranges)        
+            self.arrows[(start_label, end_label)] = ArrowList(self.series_dict[start_label], self.series_dict[end_label], x_ranges)
         else:
             self.arrows[(start_label, end_label)].x_ranges = x_ranges
 
