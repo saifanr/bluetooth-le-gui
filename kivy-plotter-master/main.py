@@ -18,24 +18,31 @@ from kivy.uix.recycleview.layout import LayoutSelectionBehavior
 Builder.load_string("""
 <MainView>:
     plot: plot
+    orientation: 'horizontal'
     BoxLayout:
-        pos: root.pos
-        size: root.size
+        width: root.width * 4/5
+        height: root.height
+        center_x: root.width * 2/5
+        center_y: root.height * 1/2
         orientation: 'vertical'
         spacing: 10
         padding: 10
         Plot:
             id: plot
+            size_hint: None, None
+            pos_hint: {'center_x': 0.5, 'center_y': 0}
             size_hint: (1, .9)
             viewport: [0,0,30,30]
             tick_distance_x: 2
-            tick_distance_y: 5
+            tick_distance_y: 2
         BoxLayout:
+            size_hint: None, None
+            pos_hint: {'center_x': 0.5, 'center_y': 0}
             size_hint: (1, .1)
             orientation: 'horizontal'
             spacing: 10
             Button:
-                text: "Scan for Devices"
+                text: "Scan"
                 on_release: Recycle.Populate()
                 on_release: root.scan(self.state)
 
@@ -48,23 +55,28 @@ Builder.load_string("""
                 text: "Disconnect"
                 on_release: Recycle.Populate()
                 on_release: root.disconnect(self.state)
-            
+
             Button:
                 text: "Request Data"
                 on_release: root.RequestData(self.state)
-                
+
             ToggleButton:
                 text: "Plot I-V Curve"
                 on_release: root.PlotIV(self.state)
-        RV:
-            viewclass: 'SelectableLabel'
-            id: Recycle
-            SelectableRecycleBoxLayout:
-                default_size: None, dp(56)
-                default_size_hint: 0.5, 0.5
-                size_hint_y: 0.9
-                height: self.minimum_height
-                orientation: "vertical"
+    RV:
+        width: root.width * 1/5
+        height: root.height
+        center_x: root.width * 0.9
+        center_y: root.height * 1/2
+        viewclass: 'SelectableLabel'
+        id: Recycle
+        SelectableRecycleBoxLayout:
+            default_size: None, dp(80)
+            default_size_hint: 1, 1
+            size_hint_y: 1
+            size_hint_x: 1
+            height: self.minimum_height
+            orientation: "vertical"
 
 <SelectableLabel>:
     # Draw a background to indicate selection
@@ -77,7 +89,7 @@ Builder.load_string("""
     """)
 WRITE_CHAR = "ffe1"
 READ_CHAR = "ffe4"
-AllDevices = []
+AllDevices = ["Device 1","Device 2"]
 device = -1
 SelectedDevice = -1
 isConnected = False
@@ -92,7 +104,7 @@ def get_data_from_csv(csvfile, has_header=True):
 
 class MainView(Widget):
     plot = ObjectProperty(None)
-    
+
     def __init__(self, **kwargs):
         super(MainView, self).__init__(**kwargs)
         self.series_controller = SeriesController(self.plot)
@@ -110,7 +122,7 @@ class MainView(Widget):
         else:
 			AllDevices = ['No Devices Found :( ']
 			device = -1
-		    
+
 
     def connect(self,state):
         global device
@@ -121,7 +133,7 @@ class MainView(Widget):
             global isConnected
             AllDevices = ['Connected!!']
             isConnected = True
-            
+
         else:
 			global AllDevices
 			AllDevices = ['No Devices to Connect']
@@ -155,7 +167,7 @@ class MainView(Widget):
                 if data is not None:
                     print("recieved", data)
                 time.sleep(1)
-                
+
 
 class SelectableRecycleBoxLayout(FocusBehavior, LayoutSelectionBehavior,
                                  RecycleBoxLayout):
@@ -191,8 +203,6 @@ class SelectableLabel(RecycleDataViewBehavior, Label):
             print(rv.data[index]['text'][1:-1].split(',')[1])
         else:
             print("selection removed for {0}".format(rv.data[index]))
-            
-
 
 
 class RV(RecycleView):
