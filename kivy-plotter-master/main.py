@@ -46,23 +46,25 @@ Builder.load_string("""
 
             Button:
                 text: "Disconnect"
+                on_release: Recycle.Populate()
                 on_release: root.disconnect(self.state)
-
-            ToggleButton:
+            
+            Button:
                 text: "Request Data"
-                on_release: root.add_button_2_pressed(self.state)
+                on_release: root.RequestData(self.state)
+                
             ToggleButton:
                 text: "Plot I-V Curve"
-                on_release: root.assdd_button_pressed(self.state)
+                on_release: root.PlotIV(self.state)
         RV:
             viewclass: 'SelectableLabel'
             id: Recycle
             SelectableRecycleBoxLayout:
                 default_size: None, dp(56)
-                default_size_hint: 0.1, 0.1
-                size_hint_y: 1
+                default_size_hint: 0.5, 0.5
+                size_hint_y: 0.9
                 height: self.minimum_height
-                orientation: "horizontal"
+                orientation: "vertical"
 
 <SelectableLabel>:
     # Draw a background to indicate selection
@@ -73,10 +75,12 @@ Builder.load_string("""
             pos: self.pos
             size: self.size
     """)
-
+WRITE_CHAR = "ffe1"
+READ_CHAR = "ffe4"
 AllDevices = []
-bulb = -1
+device = -1
 SelectedDevice = -1
+isConnected = False
 
 def get_data_from_csv(csvfile, has_header=True):
     with open(csvfile, 'r') as inf:
@@ -88,37 +92,49 @@ def get_data_from_csv(csvfile, has_header=True):
 
 class MainView(Widget):
     plot = ObjectProperty(None)
-
-
+    
     def __init__(self, **kwargs):
         super(MainView, self).__init__(**kwargs)
         self.series_controller = SeriesController(self.plot)
 
     def scan(self,state):
-        #self.devices = scanble(timeout=3)
+        self.devices = scanble(timeout=3)
         global AllDevices
+        global device
         AllDevices = []
-        # for device in self.devices:
-        #     AllDevices.append(device['addr'])
-        AllDevices = [5,4,6,7,8]
+        if(len(self.devices) > 0):
+            device = 0
+            for device in self.devices:
+                if(device['name']  != "(unknown)"):
+                    AllDevices.append((device['name'],device['addr']))
+        else:
+			AllDevices = ['No Devices Found :( ']
+			device = -1
+		    
 
     def connect(self,state):
-        print(SelectedDevice)
-        # global bulb
-        # if(bulb != -1):
-        #     bulb = BLEDevice(self.devices[0]['addr'])
-            #TODO#
-            #bulb = BLEDevice(self.setDevice)
-        global AllDevices
-        AllDevices = ['Connected!!']
+        global device
+        if(device != -1):
+            device
+            device = BLEDevice(SelectedDevice)
+            global AllDevices
+            global isConnected
+            AllDevices = ['Connected!!']
+            isConnected = True
+            
+        else:
+			global AllDevices
+			AllDevices = ['No Devices to Connect']
 
     def disconnect(self,state):
-        global bulb
-        blub = -1
+        global isConnected
+        global device
+        isConnected = False
         global AllDevices
         AllDevices = []
+        device = -1
 
-    def add_button_pressed(self, state):
+    def PlotIV(self, state):
         if state == 'down':
             try:
                 self.series_controller.enable('Plot I-V Curve')
@@ -130,24 +146,20 @@ class MainView(Widget):
             self.series_controller.disable('Plot I-V Curve')
         self.series_controller.fit_to_all_series()
 
-    def add_button_2_pressed(self, state):
-        if state == 'down':
-
-            try:
-                self.series_controller.enable('Request Data')
-            except KeyError:
-                xy_data = [t for t in get_data_from_csv('sample_data_2.csv')]
-                self.series_controller.add_data('Request Data', xy_data, marker='tick')
-                self.series_controller.enable('Request Data')
-        else:
-            self.series_controller.disable('Request Data')
-
-        self.series_controller.fit_to_all_series()
+    def RequestData(self, state):
+        global device
+        if(isConnected is True):
+            while(True):
+                device.writecmd(device.getvaluehandle(WRITE_CHAR), "SendData")
+                data = device.notify()
+                if data is not None:
+                    print("recieved", data)
+                time.sleep(1)
+                
 
 class SelectableRecycleBoxLayout(FocusBehavior, LayoutSelectionBehavior,
                                  RecycleBoxLayout):
     ''' Adds selection and focus behaviour to the view. '''
-
 
 class SelectableLabel(RecycleDataViewBehavior, Label):
     ''' Add selection support to the Label '''
@@ -163,7 +175,6 @@ class SelectableLabel(RecycleDataViewBehavior, Label):
 
     def on_touch_down(self, touch):
         ''' Add selection on touch down '''
-
         if super(SelectableLabel, self).on_touch_down(touch):
             return True
         if self.collide_point(*touch.pos) and self.selectable:
@@ -172,21 +183,21 @@ class SelectableLabel(RecycleDataViewBehavior, Label):
     def apply_selection(self, rv, index, is_selected):
         ''' Respond to the selection of items in the view. '''
         self.selected = is_selected
-        if is_selected:
+
+        if is_selected and not isConnected:
             print("selection changed to {0}".format(rv.data[index]))
             global SelectedDevice
-            SelectedDevice = rv.data[index]['text']
-
+            SelectedDevice = rv.data[index]['text'][1:-1].split(',')[1]
+            print(rv.data[index]['text'][1:-1].split(',')[1])
         else:
             print("selection removed for {0}".format(rv.data[index]))
+            
 
 
 
 class RV(RecycleView):
     def __init__(self, **kwargs):
         super(RV, self).__init__(**kwargs)
-        #self.data = [{'text': str(x)} for x in range(10)]
-
         self.data = [{'text': str(x)} for x in AllDevices]
 
     def Populate(self):
@@ -204,12 +215,4 @@ class TestApp(App):
         return RV()
 
 if __name__ == '__main__':
-    # Connect to BLE device
-    # if len(sys.argv) != 2:
-    #     print "Usage: python blecomm.py <ble address>"
-    #     print "Scan devices are as follows:"
-    #     print scanble(timeout=3)
-    #     sys.exit(1)
-    # hm10 = BLEDevice(sys.argv[1])
-    # Plot
     PlotDemo().run()
