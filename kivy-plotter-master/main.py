@@ -3,6 +3,7 @@ from plot import Plot, SeriesController
 from kivy.lang import Builder
 from kivy.uix.widget import Widget
 from kivy.properties import ObjectProperty
+from kivy.uix.boxlayout import BoxLayout
 import csv
 import sys, time
 from bledevice import scanble, BLEDevice
@@ -13,7 +14,7 @@ from kivy.properties import BooleanProperty
 from kivy.uix.recycleboxlayout import RecycleBoxLayout
 from kivy.uix.behaviors import FocusBehavior
 from kivy.uix.recycleview.layout import LayoutSelectionBehavior
-
+import matplotlib.pyplot as plt
 
 Builder.load_string("""
 <MainView>:
@@ -93,6 +94,7 @@ AllDevices = ["Device 1","Device 2"]
 device = -1
 SelectedDevice = -1
 isConnected = False
+AskForData = "AD"
 
 def get_data_from_csv(csvfile, has_header=True):
     with open(csvfile, 'r') as inf:
@@ -110,18 +112,18 @@ class MainView(Widget):
         self.series_controller = SeriesController(self.plot)
 
     def scan(self,state):
-        self.devices = scanble(timeout=3)
         global AllDevices
         global device
         AllDevices = []
-        if(len(self.devices) > 0):
+        try:
             device = 0
+            self.devices = scanble(timeout=3)
             for device in self.devices:
                 if(device['name']  != "(unknown)"):
                     AllDevices.append((device['name'],device['addr']))
-        else:
-			AllDevices = ['No Devices Found :( ']
-			device = -1
+        except:
+            AllDevices = ['No Devices Found :( ']
+            device = -1
 
 
     def connect(self,state):
@@ -161,12 +163,13 @@ class MainView(Widget):
     def RequestData(self, state):
         global device
         if(isConnected is True):
-            while(True):
-                device.writecmd(device.getvaluehandle(WRITE_CHAR), "SendData")
-                data = device.notify()
-                if data is not None:
-                    print("recieved", data)
-                time.sleep(1)
+            try:
+                device.writecmd(device.getvaluehandle(WRITE_CHAR), AskForData)
+                while(data != End):
+                    data = device.notify()
+                    print(data)
+            except:
+                print("Something went wrong, try Again")
 
 
 class SelectableRecycleBoxLayout(FocusBehavior, LayoutSelectionBehavior,
@@ -195,12 +198,15 @@ class SelectableLabel(RecycleDataViewBehavior, Label):
     def apply_selection(self, rv, index, is_selected):
         ''' Respond to the selection of items in the view. '''
         self.selected = is_selected
-
         if is_selected and not isConnected:
             print("selection changed to {0}".format(rv.data[index]))
             global SelectedDevice
-            SelectedDevice = rv.data[index]['text'][1:-1].split(',')[1]
-            print(rv.data[index]['text'][1:-1].split(',')[1])
+            try:
+                SelectedDevice = rv.data[index]['text'][1:-1].split(',')[1]
+                print(rv.data[index]['text'][1:-1].split(',')[1])
+            except:
+                print("not a valid device")
+
         else:
             print("selection removed for {0}".format(rv.data[index]))
 

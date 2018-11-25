@@ -6,6 +6,7 @@ from kivy.uix.scatter import Scatter
 from kivy.lang import Builder
 from kivy.uix.label import Label
 from math import atan2, sin, cos
+from kivy.graphics import Color
 
 def drange(start, stop, step):
     r = start
@@ -273,13 +274,13 @@ class Series(Widget):
 
 class Plot(Widget):
     viewport = ListProperty([0,0,100,10])
-    border_width = NumericProperty(5)
+    border_width = NumericProperty(2)
     border_color = ListProperty([.3,.3,.3])
     tick_distance_x = NumericProperty(10)
     tick_distance_y = NumericProperty(1)
     tick_color = ListProperty([.3,.3,.3])
-    left_margin = NumericProperty(25)
-    bottom_margin = NumericProperty(25)
+    left_margin = NumericProperty(50)
+    bottom_margin = NumericProperty(50)
     right_margin = NumericProperty(0)
     top_margin = NumericProperty(0)
     x_axis_title = StringProperty("Voltage (V)")
@@ -309,6 +310,14 @@ class Plot(Widget):
         self.canvas.add(self.border)
         self.canvas.add(self.x_axis_label)
         self.canvas.add(self.y_axis_label)
+
+        l = Label(text='[color=ff3333]Hello[/color][color=3333ff]World[/color]',
+    markup = True)
+        l.texture_update()
+        self.y_axis_title_texture = l.texture
+        l = Label(text = "[color=3333ff]Voltage (I)[/color]", color= [105, 106, 188, 1])
+        l.texture_update()
+        self.x_axis_title_texture = l.texture
 
 
     # recalculate viewport when size changes
@@ -361,6 +370,7 @@ class Plot(Widget):
         self.border.add(PopMatrix())
 
     def draw_axis_labels(self):
+        print("drawing axis labels")
         self.x_axis_label.clear()
         self.x_axis_label.add(PushMatrix())
         self.border.add(Color(*self.text_color, mode='rgb'))
@@ -377,9 +387,6 @@ class Plot(Widget):
         self.border.add(Color(*self.text_color, mode='rgb'))
 
         self.y_axis_label.add(self.y_axis_label_translate)
-
-
-
 
         if self.y_axis_title_texture is not None:
             w,h = self.y_axis_title_texture.size
@@ -403,11 +410,13 @@ class Plot(Widget):
         self.y_axis_label.add(PopMatrix())
 
 
+
+
     def on_y_axis_title(self, instance, value):
         if value is None:
             self.y_axis_title_texture = None
             return
-        l = Label(text = value)
+        l = Label(text = "value")
         l.texture_update()
         self.y_axis_title_texture = l.texture
 
