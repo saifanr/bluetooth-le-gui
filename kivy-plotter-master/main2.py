@@ -14,73 +14,109 @@ from kivy.properties import BooleanProperty
 from kivy.uix.recycleboxlayout import RecycleBoxLayout
 from kivy.uix.behaviors import FocusBehavior
 from kivy.uix.recycleview.layout import LayoutSelectionBehavior
+from kivy.uix.button import Button
+
+import matplotlib
+matplotlib.use('module://kivy.garden.matplotlib.backend_kivy')
+from matplotlib.figure import Figure
+from numpy import arange, sin, pi
+from kivy.app import App
+
+import numpy as np
+from matplotlib.mlab import griddata
+from kivy.garden.matplotlib.backend_kivy import FigureCanvas,\
+                                                NavigationToolbar2Kivy
+
+# from backend_kivy import FigureCanvasKivy as FigureCanvas
+
+from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.boxlayout import BoxLayout
+from matplotlib.transforms import Bbox
+from kivy.uix.button import Button
+from kivy.graphics import Color, Line, Rectangle
+
+import matplotlib.pyplot as plt
+from matplotlib import cm
+from mpl_toolkits.mplot3d import Axes3D
+
+# fig, ax = plt.subplots()
+fig, ax = plt.subplots()
+
+#X = np.arange(-508, 510, 203.2, 444, 1111)
+#Y = np.arange(-508, 510, 203.2, 444, 123)
+#X, Y = np.meshgrid(X, Y)
 
 
+X = np.random.randint(50, size=50)
+Y = np.random.randint(50, size=50)
+
+#plt.contourf(X, Y, Z, 100, zdir='z', offset=1.0, cmap=cm.hot)
+
+plt.scatter(X,Y)
+#plt.colorbar()
+
+ax.set_ylabel('Current (I)', fontsize=25)
+ax.set_title('I-V Curve', fontsize=30)
+ax.set_xlabel('Voltage (V)', fontsize=25)
+ax.tick_params(axis='both', which='major', labelsize=20)
+
+canvas = fig.canvas
 
 
 
 Builder.load_string("""
 <MainView>:
-    plot: plot
+    #plot: plot
     orientation: 'horizontal'
+    rv: rv
     BoxLayout:
-        width: root.width * 4/5
+        width: root.width
         height: root.height
-        center_x: root.width * 2/5
-        center_y: root.height * 1/2
+        center_x: root.width * 4.47
+        center_y: root.height / 2
         orientation: 'vertical'
         spacing: 10
         padding: 10
-        Plot:
-            id: plot
-            size_hint: None, None
-            pos_hint: {'center_x': 0.5, 'center_y': 0}
-            size_hint: (1, .9)
-            viewport: [0,0,30,30]
-            tick_distance_x: 2
-            tick_distance_y: 2
         BoxLayout:
             size_hint: None, None
-            pos_hint: {'center_x': 0.5, 'center_y': 0}
-            size_hint: (1, .1)
-            orientation: 'horizontal'
+            pos_hint: {'center_x': 0, 'center_y': 0}
+            size_hint: (1, .4)
+            orientation: 'vertical'
             spacing: 10
             Button:
-                text: "Scan"
-                on_release: Recycle.Populate()
-                on_release: root.scan(self.state)
-
+                text: 'Scan'
+                on_press: root.scan(self.state)
+                on_release: root.Populate()
             Button:
-                text: "Connect"
-                on_release: Recycle.Populate()
-                on_release: root.connect(self.state)
-
+                text: 'Connect'
+                on_press: root.connect(self.state)
+                on_release: root.Populate()
             Button:
-                text: "Disconnect"
-                on_release: Recycle.Populate()
-                on_release: root.disconnect(self.state)
-
+                text: 'Disconnect'
+                on_press: root.disconnect(self.state)
+                on_release: root.Populate()
             Button:
-                text: "Request Data"
+                text: 'Request Data'
                 on_release: root.RequestData(self.state)
-
-            ToggleButton:
-                text: "Plot I-V Curve"
+            Button:
+                text: 'Plot I-V'
                 on_release: root.PlotIV(self.state)
-    RV:
-        width: root.width * 1/5
-        height: root.height
-        center_x: root.width * 0.9
-        center_y: root.height * 1/2
-        viewclass: 'SelectableLabel'
-        id: Recycle
-        SelectableRecycleBoxLayout:
-            default_size: None, dp(80)
-            default_size_hint: 1, 1
-            size_hint_y: 1
-            size_hint_x: 1
-            height: self.minimum_height
-            orientation: "vertical"
+
+        RecycleView:
+            pos_hint: {'center_x': 0, 'center_y': 0}
+            size_hint: (1, 0.6)
+            spacing: 10
+            viewclass: 'SelectableLabel'
+            id: rv
+            SelectableRecycleBoxLayout:
+                default_size: None, dp(80)
+                default_size_hint: 1, 1
+                size_hint_y: 1
+                size_hint_x: 1
+                height: self.minimum_height
+                orientation: "vertical"
+
+
 
 <SelectableLabel>:
     # Draw a background to indicate selection
@@ -110,12 +146,19 @@ def get_data_from_csv(csvfile, has_header=True):
             yield (float(line[0]), float(line[1]))
 
 
+
 class MainView(Widget):
-    plot = ObjectProperty(None)
+    #plot = ObjectProperty(None)
 
     def __init__(self, **kwargs):
         super(MainView, self).__init__(**kwargs)
-        self.series_controller = SeriesController(self.plot)
+        self.rv.data = [{'text': str(x)} for x in AllDevices]
+        #self.series_controller = SeriesController(self.plot)
+
+    def Populate(self):
+        self.rv.data = [{'text': str(x)} for x in AllDevices]
+        print(self.rv.data )
+
 
     def scan(self,state):
         global AllDevices
@@ -155,16 +198,23 @@ class MainView(Widget):
         device = -1
 
     def PlotIV(self, state):
-        if state == 'down':
-            try:
-                self.series_controller.enable('Plot I-V Curve')
-            except KeyError:
-                xy_data = [t for t in get_data_from_csv('sample_data_1.csv')]
-                self.series_controller.add_data('Plot I-V Curve', xy_data, marker='plus')
-                self.series_controller.enable('Plot I-V Curve')
-        else:
-            self.series_controller.disable('Plot I-V Curve')
-        self.series_controller.fit_to_all_series()
+
+        plt.cla()
+        X = np.random.randint(50, size=50)
+        Y = np.random.randint(50, size=50)
+
+        #plt.contourf(X, Y, Z, 100, zdir='z', offset=1.0, cmap=cm.hot)
+
+        plt.scatter(X,Y)
+        #plt.colorbar()
+
+        ax.set_ylabel('Current (I)', fontsize=25)
+        ax.set_title('I-V Curve', fontsize=30)
+        ax.set_xlabel('Voltage (V)', fontsize=25)
+        ax.tick_params(axis='both', which='major', labelsize=20)
+
+
+        canvas.draw()
 
     def RequestData(self, state):
         global device
@@ -217,18 +267,45 @@ class SelectableLabel(RecycleDataViewBehavior, Label):
             print("selection removed for {0}".format(rv.data[index]))
 
 
-class RV(RecycleView):
-    def __init__(self, **kwargs):
-        super(RV, self).__init__(**kwargs)
-        self.data = [{'text': str(x)} for x in AllDevices]
 
-    def Populate(self):
-        self.data = [{'text': str(x)} for x in AllDevices]
-        print(self.data )
+import inspect
+
 
 class PlotDemo(App):
     def build(self):
-        return MainView()
+        mv = MainView()
+
+        root = BoxLayout(orientation="vertical")
+        fl = BoxLayout(orientation="horizontal", size_hint=(1, 1))
+        fl1 = BoxLayout(orientation="horizontal", size_hint=(3.5, 1))
+        fl1.add_widget(canvas)
+        fl.add_widget(fl1)
+        fl.add_widget(MainView())
+
+        button = BoxLayout(orientation="horizontal", size_hint=(1, .1))
+        scan = Button(text="Scan", height=100, size_hint_y=None)
+
+        scan.bind(on_release = mv.scan)
+
+
+        connect = Button(text="Connect", height=100, size_hint_y=None)
+        connect.bind(on_release = mv.connect)
+        disconnect = Button(text="disconnect", height=100, size_hint_y=None)
+        disconnect.bind(on_release = mv.disconnect)
+        reqdata = Button(text="Request Data", height=100, size_hint_y=None)
+        reqdata.bind(on_release = mv.RequestData)
+        Plot = Button(text="Plot I-V", height=100, size_hint_y=None)
+        Plot.bind(on_release = mv.PlotIV)
+
+        button.add_widget(scan)
+        button.add_widget(connect)
+        button.add_widget(disconnect)
+        button.add_widget(reqdata)
+        button.add_widget(Plot)
+        root.add_widget(fl)
+        #root.add_widget(button)
+
+        return root
 
 
 
