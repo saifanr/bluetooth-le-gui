@@ -55,9 +55,9 @@ Y = np.random.randint(50, size=50)
 plt.scatter(X,Y)
 #plt.colorbar()
 
-ax.set_ylabel('Current (I)', fontsize=25)
+ax.set_ylabel('Current (I)', fontsize=20)
 ax.set_title('I-V Curve', fontsize=30)
-ax.set_xlabel('Voltage (V)', fontsize=25)
+ax.set_xlabel('Voltage (V)', fontsize=250)
 ax.tick_params(axis='both', which='major', labelsize=20)
 
 canvas = fig.canvas
@@ -136,7 +136,8 @@ AllDevices = ["Device 1","Device 2"]
 device = -1
 SelectedDevice = -1
 isConnected = False
-AskForData = "AD"
+AskForData = "T"
+END = 'E'
 
 def get_data_from_csv(csvfile, has_header=True):
     with open(csvfile, 'r') as inf:
@@ -164,6 +165,7 @@ class MainView(Widget):
         global AllDevices
         global device
         AllDevices = []
+        
         try:
             device = 0
             self.devices = scanble(timeout=3)
@@ -177,15 +179,16 @@ class MainView(Widget):
 
     def connect(self,state):
         global device
-        if(device != -1):
+        if(device != -1 and isConnected is False):
             device
             device = BLEDevice(SelectedDevice)
             global AllDevices
             global isConnected
             AllDevices = ['Connected!!']
             isConnected = True
+        elif(isConnected is True):
+            AllDevices = ['Connected!!']
         else:
-
 			global AllDevices
 			AllDevices = ['No Devices to Connect']
 
@@ -208,9 +211,9 @@ class MainView(Widget):
         plt.scatter(X,Y)
         #plt.colorbar()
 
-        ax.set_ylabel('Current (I)', fontsize=25)
+        ax.set_ylabel('Current (I)', fontsize=20)
         ax.set_title('I-V Curve', fontsize=30)
-        ax.set_xlabel('Voltage (V)', fontsize=25)
+        ax.set_xlabel('Voltage (V)', fontsize=20)
         ax.tick_params(axis='both', which='major', labelsize=20)
 
 
@@ -220,10 +223,16 @@ class MainView(Widget):
         global device
         if(isConnected is True):
             try:
-                device.writecmd(device.getvaluehandle(WRITE_CHAR), AskForData)
-                while(data != End):
-                    data = device.notify()
-                    print(data)
+                device.writecmd(device.getvaluehandle(WRITE_CHAR), "T".encode('hex'))
+                try:
+                    while(True):
+                        data = device.notify()
+                        print(data)
+                        if data[-1] == 'E':
+                            
+                            break
+                except:
+                    print("Incorrect Data")       
             except:
                 print("Something went wrong, try Again")
 
