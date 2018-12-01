@@ -138,7 +138,7 @@ SelectedDevice = -1
 isConnected = False
 AskForData = "T"
 END = 'E'
-plotData = []
+plotData = ""
 
 def get_data_from_csv(csvfile, has_header=True):
     with open(csvfile, 'r') as inf:
@@ -211,20 +211,22 @@ class MainView(Widget):
         I = []
         status = 'V'
         val = ""
-        for i in range(1,len(plotData[:-1])):
-            if(plotData[i] == 'V'):
+        print("plotdata", plotData)
+        for i in range(1,len(plotData)):
+            if(plotData[i] == 'V' or plotData[i] == 'E'):
                 status = 'V'
-                I.append(val)
+                print(val)
+                I.append(float(val))
                 val = ""
-        elif(plotData[i] == 'I'):
-            status = 'V'
-            V.append(val)
-            val = ""
-        else:
-            val = val + plotData[i]
-
+            elif(plotData[i] == 'I'):
+                status = 'V'
+                V.append(float(val))
+                val = ""
+            else:
+                val = val + plotData[i]
+        print(I,V)
         #plt.contourf(X, Y, Z, 100, zdir='z', offset=1.0, cmap=cm.hot)
-        plt.scatter(X,Y)
+        plt.scatter(I,V)
         #plt.colorbar()
 
         ax.set_ylabel('Current (I)', fontsize=20)
@@ -237,21 +239,23 @@ class MainView(Widget):
 
     def RequestData(self, state):
         global device
+        global plotData
         if(isConnected is True):
-            try:
-                plotData = []
+            #try:
+                plotData = ""
                 device.writecmd(device.getvaluehandle(WRITE_CHAR), "T".encode('hex'))
-                try:
-                    while(True):
-                        data = device.notify()
-                        plotData.append(data)
+                #try:
+                while(True):
+                    data = device.notify()
+                    if(data is not None):
+                        plotData = plotData + data
                         print(data)
                         if data[-1] == 'E':
                             break
-                except:
-                    print("Incorrect Data")
-            except:
-                print("Something went wrong, try Again")
+                #except:
+                 #   print("Incorrect Data")
+            #except:
+                #print("Something went wrong, try Again")
 
 
 class SelectableRecycleBoxLayout(FocusBehavior, LayoutSelectionBehavior,
