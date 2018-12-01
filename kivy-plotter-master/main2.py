@@ -57,7 +57,7 @@ plt.scatter(X,Y)
 
 ax.set_ylabel('Current (I)', fontsize=20)
 ax.set_title('I-V Curve', fontsize=30)
-ax.set_xlabel('Voltage (V)', fontsize=250)
+ax.set_xlabel('Voltage (V)', fontsize=20)
 ax.tick_params(axis='both', which='major', labelsize=20)
 
 canvas = fig.canvas
@@ -138,6 +138,7 @@ SelectedDevice = -1
 isConnected = False
 AskForData = "T"
 END = 'E'
+plotData = []
 
 def get_data_from_csv(csvfile, has_header=True):
     with open(csvfile, 'r') as inf:
@@ -165,7 +166,7 @@ class MainView(Widget):
         global AllDevices
         global device
         AllDevices = []
-        
+
         try:
             device = 0
             self.devices = scanble(timeout=3)
@@ -179,18 +180,19 @@ class MainView(Widget):
 
     def connect(self,state):
         global device
+        global AllDevices
+        global isConnected
         if(device != -1 and isConnected is False):
             device
             device = BLEDevice(SelectedDevice)
-            global AllDevices
-            global isConnected
             AllDevices = ['Connected!!']
             isConnected = True
         elif(isConnected is True):
             AllDevices = ['Connected!!']
         else:
-			global AllDevices
-			AllDevices = ['No Devices to Connect']
+
+            AllDevices = ['No Devices to Connect']
+
 
     def disconnect(self,state):
         global isConnected
@@ -205,9 +207,23 @@ class MainView(Widget):
         plt.cla()
         X = np.random.randint(50, size=50)
         Y = np.random.randint(50, size=50)
+        V = []
+        I = []
+        status = 'V'
+        val = ""
+        for i in range(1,len(plotData[:-1])):
+            if(plotData[i] == 'V'):
+                status = 'V'
+                I.append(val)
+                val = ""
+        elif(plotData[i] == 'I'):
+            status = 'V'
+            V.append(val)
+            val = ""
+        else:
+            val = val + plotData[i]
 
         #plt.contourf(X, Y, Z, 100, zdir='z', offset=1.0, cmap=cm.hot)
-
         plt.scatter(X,Y)
         #plt.colorbar()
 
@@ -223,16 +239,17 @@ class MainView(Widget):
         global device
         if(isConnected is True):
             try:
+                plotData = []
                 device.writecmd(device.getvaluehandle(WRITE_CHAR), "T".encode('hex'))
                 try:
                     while(True):
                         data = device.notify()
+                        plotData.append(data)
                         print(data)
                         if data[-1] == 'E':
-                            
                             break
                 except:
-                    print("Incorrect Data")       
+                    print("Incorrect Data")
             except:
                 print("Something went wrong, try Again")
 
@@ -285,7 +302,7 @@ class PlotDemo(App):
         mv = MainView()
 
         root = BoxLayout(orientation="vertical")
-        fl = BoxLayout(orientation="horizontal", size_hint=(1, 1))
+        fl = BoxLayout(orientation="horizontal", size_hint=(1, 0.9))
         fl1 = BoxLayout(orientation="horizontal", size_hint=(3.5, 1))
         fl1.add_widget(canvas)
         fl.add_widget(fl1)
