@@ -183,10 +183,12 @@ class MainView(Widget):
         global AllDevices
         global isConnected
         if(device != -1 and isConnected is False):
-            device
-            device = BLEDevice(SelectedDevice)
-            AllDevices = ['Connected!!']
-            isConnected = True
+            try:
+                device = BLEDevice(SelectedDevice)
+                AllDevices = ['Connected!!']
+                isConnected = True
+            except:
+                AllDevices = ['Not able to connect!']
         elif(isConnected is True):
             AllDevices = ['Connected!!']
         else:
@@ -226,7 +228,7 @@ class MainView(Widget):
                 val = val + plotData[i]
         print(I,V)
         #plt.contourf(X, Y, Z, 100, zdir='z', offset=1.0, cmap=cm.hot)
-        plt.scatter(I,V)
+        plt.scatter(V, I)
         #plt.colorbar()
 
         ax.set_ylabel('Current (I)', fontsize=20)
