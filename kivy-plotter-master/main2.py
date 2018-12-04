@@ -215,13 +215,13 @@ class MainView(Widget):
         val = ""
         flag = True
         corrupt = False
+
         for i in range(1,len(plotData)):
             if(plotData[i] == 'V' or plotData[i] == 'I'):
                 if (plotData[i] == status):
                     if(status == 'V'):
-                        print("a")
                     else:
-                        if(val.isdigit()):
+                        if(val.replace('.','',1).isdigit()):
                             flag = False
                             status = 'I'
                             if(len(I) < len(V)):
@@ -233,7 +233,7 @@ class MainView(Widget):
                 else:
                     corrupt = False
                     if(plotData[i] == 'V'):
-                        if(val.isdigit()):
+                        if(val.replace('.','',1).isdigit()):
                             if(flag is False):
                                 flag = True
                                 status = 'V'
@@ -248,7 +248,7 @@ class MainView(Widget):
                                 V.pop()
                             status = 'V'
                     else:
-                        if(val.isdigit()):
+                        if(val.replace('.','',1).isdigit()):
                             status = 'I'
                             V.append(float(val))
                             #corrupt = False
@@ -257,12 +257,11 @@ class MainView(Widget):
                             status = 'I'
                 val = ""
             elif(plotData[i] == 'E'):
-                if(val.isdigit() and len(I) < len(V)):
+                if(val.replace('.','',1).isdigit() and len(I) < len(V)):
                     I.append(float(val))
             else:
                 val = val + plotData[i]
 
-        print(I,V)
         #plt.contourf(X, Y, Z, 100, zdir='z', offset=1.0, cmap=cm.hot)
         plt.scatter(V, I)
         #plt.colorbar()
