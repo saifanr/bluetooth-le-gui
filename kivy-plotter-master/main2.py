@@ -47,8 +47,8 @@ fig, ax = plt.subplots()
 #X, Y = np.meshgrid(X, Y)
 
 
-X = np.random.randint(50, size=50)
-Y = np.random.randint(50, size=50)
+X = []
+Y = []
 
 #plt.contourf(X, Y, Z, 100, zdir='z', offset=1.0, cmap=cm.hot)
 
@@ -132,7 +132,7 @@ Builder.load_string("""
 
 WRITE_CHAR = "ffe1"
 READ_CHAR = "ffe4"
-AllDevices = ["Device 1","Device 2"]
+AllDevices = []
 device = -1
 SelectedDevice = -1
 isConnected = False
@@ -169,7 +169,7 @@ class MainView(Widget):
 
         try:
             device = 0
-            self.devices = scanble(timeout=3)
+            self.devices = scanble(timeout=2)
             for device in self.devices:
                 if(device['name']  != "(unknown)"):
                     AllDevices.append((device['name'],device['addr']))
@@ -213,19 +213,55 @@ class MainView(Widget):
         I = []
         status = 'V'
         val = ""
-        print("plotdata", plotData)
+        flag = True
+        corrupt = False
         for i in range(1,len(plotData)):
-            if(plotData[i] == 'V' or plotData[i] == 'E'):
-                status = 'V'
-                print(val)
-                I.append(float(val))
+            if(plotData[i] == 'V' or plotData[i] == 'I'):
+                if (plotData[i] == status):
+                    if(status == 'V'):
+                        print("a")
+                    else:
+                        if(val.isdigit()):
+                            flag = False
+                            status = 'I'
+                            if(len(I) < len(V)):
+                                I.append(float(val))
+                        else:
+                            corrupt = True
+                            if(len(V) > len((I))):
+                                V.pop()
+                else:
+                    corrupt = False
+                    if(plotData[i] == 'V'):
+                        if(val.isdigit()):
+                            if(flag is False):
+                                flag = True
+                                status = 'V'
+                            else:
+                                status = 'V'
+                                if(corrupt ):
+                                    corrupt = False
+                                else:
+                                    I.append(float(val))
+                        else:
+                            if(len(V) > len((I))):
+                                V.pop()
+                            status = 'V'
+                    else:
+                        if(val.isdigit()):
+                            status = 'I'
+                            V.append(float(val))
+                            #corrupt = False
+                        else:
+                            corrupt = True
+                            status = 'I'
                 val = ""
-            elif(plotData[i] == 'I'):
-                status = 'V'
-                V.append(float(val))
-                val = ""
+            elif(plotData[i] == 'E'):
+                if(val.isdigit() and len(I) < len(V)):
+                    I.append(float(val))
             else:
                 val = val + plotData[i]
+
         print(I,V)
         #plt.contourf(X, Y, Z, 100, zdir='z', offset=1.0, cmap=cm.hot)
         plt.scatter(V, I)
