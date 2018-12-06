@@ -127,6 +127,12 @@ Builder.load_string("""
             pos: self.pos
             size: self.size
     """)
+def isfloat(val):
+    try:
+        float(val)
+        return True
+    except ValueError:
+        return False
 
 
 
@@ -220,8 +226,9 @@ class MainView(Widget):
             if(plotData[i] == 'V' or plotData[i] == 'I'):
                 if (plotData[i] == status):
                     if(status == 'V'):
+                        pass
                     else:
-                        if(val.replace('.','',1).isdigit()):
+                        if(isfloat(val)):
                             flag = False
                             status = 'I'
                             if(len(I) < len(V)):
@@ -233,7 +240,7 @@ class MainView(Widget):
                 else:
                     corrupt = False
                     if(plotData[i] == 'V'):
-                        if(val.replace('.','',1).isdigit()):
+                        if(isfloat(val)):
                             if(flag is False):
                                 flag = True
                                 status = 'V'
@@ -248,7 +255,7 @@ class MainView(Widget):
                                 V.pop()
                             status = 'V'
                     else:
-                        if(val.replace('.','',1).isdigit()):
+                        if(isfloat(val)):
                             status = 'I'
                             V.append(float(val))
                             #corrupt = False
@@ -257,11 +264,11 @@ class MainView(Widget):
                             status = 'I'
                 val = ""
             elif(plotData[i] == 'E'):
-                if(val.replace('.','',1).isdigit() and len(I) < len(V)):
+                if(isfloat(val) and len(I) < len(V)):
                     I.append(float(val))
             else:
                 val = val + plotData[i]
-
+        print(V,I)
         #plt.contourf(X, Y, Z, 100, zdir='z', offset=1.0, cmap=cm.hot)
         plt.scatter(V, I)
         #plt.colorbar()

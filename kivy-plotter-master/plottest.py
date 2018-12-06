@@ -5,9 +5,14 @@ status = 'V'
 val = ""
 flag = True
 
+def isfloat(val):
+    try:
+        float(val)
+        return True
+    except ValueError:
+        return False
 
-
-plotData = "V2.2I2.4V3I3V4I4V5I5V6I6V7I7E"
+plotData = plotData = "V-1.000I-15.028V-.993I-14.909V-.986I-14.908V-.980I-14.908V-.973I-14.104V-.966I-1.44E"
 corrupt = False
 
 for i in range(1,len(plotData)):
@@ -16,7 +21,7 @@ for i in range(1,len(plotData)):
             if(status == 'V'):
                 print("a")
             else:
-                if(val.replace('.','',1).isdigit()):
+                if(isfloat(val)):
                     flag = False
                     status = 'I'
                     if(len(I) < len(V)):
@@ -28,7 +33,7 @@ for i in range(1,len(plotData)):
         else:
             corrupt = False
             if(plotData[i] == 'V'):
-                if(val.replace('.','',1).isdigit()):
+                if(isfloat(val)):
                     if(flag is False):
                         flag = True
                         status = 'V'
@@ -43,7 +48,7 @@ for i in range(1,len(plotData)):
                         V.pop()
                     status = 'V'
             else:
-                if(val.replace('.','',1).isdigit()):
+                if(isfloat(val)):
                     status = 'I'
                     V.append(float(val))
                     #corrupt = False
@@ -52,9 +57,14 @@ for i in range(1,len(plotData)):
                     status = 'I'
         val = ""
     elif(plotData[i] == 'E'):
-        if(val.replace('.','',1).isdigit() and len(I) < len(V)):
+        if(isfloat(val) and len(I) < len(V)):
             I.append(float(val))
     else:
         val = val + plotData[i]
 
 print(V,I )
+
+
+
+
+
