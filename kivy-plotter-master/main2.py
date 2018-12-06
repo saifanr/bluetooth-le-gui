@@ -268,11 +268,17 @@ class MainView(Widget):
                     I.append(float(val))
             else:
                 val = val + plotData[i]
-        print(V,I)
-        #plt.contourf(X, Y, Z, 100, zdir='z', offset=1.0, cmap=cm.hot)
-        plt.scatter(V, I)
-        #plt.colorbar()
 
+        R = V[0] / I[0]
+        newV = []
+        newI = []
+        tolerance = 0.2
+        for i in range(1,len(V)):
+            if abs(I[i] - V[i] / R) < tolerance:
+                newV.append(V[i])
+                newI.append(I[i])
+
+        plt.scatter(newV, newI)
         ax.set_ylabel('Current (I)', fontsize=20)
         ax.set_title('I-V Curve', fontsize=30)
         ax.set_xlabel('Voltage (V)', fontsize=20)
