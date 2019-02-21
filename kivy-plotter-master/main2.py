@@ -15,6 +15,7 @@ from kivy.uix.recycleboxlayout import RecycleBoxLayout
 from kivy.uix.behaviors import FocusBehavior
 from kivy.uix.recycleview.layout import LayoutSelectionBehavior
 from kivy.uix.button import Button
+from kivy.uix.modalview import ModalView
 
 import matplotlib
 matplotlib.use('module://kivy.garden.matplotlib.backend_kivy')
@@ -27,8 +28,6 @@ from matplotlib.mlab import griddata
 from kivy.garden.matplotlib.backend_kivy import FigureCanvas,\
                                                 NavigationToolbar2Kivy
 
-# from backend_kivy import FigureCanvasKivy as FigureCanvas
-
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.boxlayout import BoxLayout
 from matplotlib.transforms import Bbox
@@ -39,21 +38,12 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
 
-# fig, ax = plt.subplots()
 fig, ax = plt.subplots()
-
-#X = np.arange(-508, 510, 203.2, 444, 1111)
-#Y = np.arange(-508, 510, 203.2, 444, 123)
-#X, Y = np.meshgrid(X, Y)
-
 
 X = []
 Y = []
 
-#plt.contourf(X, Y, Z, 100, zdir='z', offset=1.0, cmap=cm.hot)
-
 plt.scatter(X,Y)
-#plt.colorbar()
 
 ax.set_ylabel('Current (I)', fontsize=20)
 ax.set_title('I-V Curve', fontsize=30)
@@ -61,8 +51,6 @@ ax.set_xlabel('Voltage (V)', fontsize=20)
 ax.tick_params(axis='both', which='major', labelsize=20)
 
 canvas = fig.canvas
-
-
 
 Builder.load_string("""
 <MainView>:
@@ -127,13 +115,13 @@ Builder.load_string("""
             pos: self.pos
             size: self.size
     """)
+
 def isfloat(val):
     try:
         float(val)
         return True
     except ValueError:
         return False
-
 
 
 WRITE_CHAR = "ffe1"
@@ -146,22 +134,11 @@ AskForData = "T"
 END = 'E'
 plotData = ""
 
-def get_data_from_csv(csvfile, has_header=True):
-    with open(csvfile, 'r') as inf:
-        reader = csv.reader(inf)
-        for idx, line in enumerate(reader):
-            if idx == 0 and has_header: continue
-            yield (float(line[0]), float(line[1]))
-
-
 
 class MainView(Widget):
-    #plot = ObjectProperty(None)
-
     def __init__(self, **kwargs):
         super(MainView, self).__init__(**kwargs)
         self.rv.data = [{'text': str(x)} for x in AllDevices]
-        #self.series_controller = SeriesController(self.plot)
 
     def Populate(self):
         self.rv.data = [{'text': str(x)} for x in AllDevices]
@@ -173,14 +150,30 @@ class MainView(Widget):
         global device
         AllDevices = []
 
+        modal = ModalView(title="Just a moment", size_hint=(0.5, 0.3))
+        label = Label(text="Hello World", size_hint=(1,.7))
+        btn_ok = Button(text="Save & continue", on_press=modal.dismiss)
+        btn_no = Button(text="Discard changes", on_press=modal.dismiss)
+
+        outerbox = BoxLayout(orientation='vertical')
+        box = BoxLayout(spacing=10, size_hint=(1,.3), padding=[10,10,10,10]);
+        box.add_widget(btn_ok)
+        box.add_widget(btn_no)
+        outerbox.add_widget(label)
+        outerbox.add_widget(box)
+
+        modal.add_widget(outerbox)
+        modal.bind(on_dismiss=modal.dismiss)
+        modal.open()
+
         try:
             device = 0
             self.devices = scanble(timeout=2)
             for device in self.devices:
                 if(device['name']  != "(unknown)"):
-                    AllDevices.append((device['name'],device['addr']))
+                    AllDevices.append((device['name'], device['addr']))
         except:
-            AllDevices = ['No Devices Found :( ']
+            AllDevices = ['No Devices Found']
             device = -1
 
 
@@ -191,12 +184,12 @@ class MainView(Widget):
         if(device != -1 and isConnected is False):
             try:
                 device = BLEDevice(SelectedDevice)
-                AllDevices = ['Connected!!']
+                AllDevices = ['Connected to {0}'.format(device['name'])]
                 isConnected = True
             except:
-                AllDevices = ['Not able to connect!']
+                AllDevices = ['Not able to connect']
         elif(isConnected is True):
-            AllDevices = ['Connected!!']
+            AllDevices = ['Connected to {0}'.format(device['name'])]
         else:
 
             AllDevices = ['No Devices to Connect']
@@ -211,7 +204,6 @@ class MainView(Widget):
         device = -1
 
     def PlotIV(self, state):
-
         plt.cla()
         X = np.random.randint(50, size=50)
         Y = np.random.randint(50, size=50)
@@ -222,7 +214,7 @@ class MainView(Widget):
         flag = True
         corrupt = False
 
-        for i in range(1,len(plotData)):
+        for i in range(1, len(plotData)):
             if(plotData[i] == 'V' or plotData[i] == 'I'):
                 if (plotData[i] == status):
                     if(status == 'V'):
@@ -284,33 +276,28 @@ class MainView(Widget):
         ax.set_xlabel('Voltage (V)', fontsize=20)
         ax.tick_params(axis='both', which='major', labelsize=20)
 
-
         canvas.draw()
+
 
     def RequestData(self, state):
         global device
         global plotData
         if(isConnected is True):
-            #try:
-                plotData = ""
-                device.writecmd(device.getvaluehandle(WRITE_CHAR), "T".encode('hex'))
-                #try:
-                while(True):
-                    data = device.notify()
-                    if(data is not None):
-                        plotData = plotData + data
-                        print(data)
-                        if data[-1] == 'E':
-                            break
-                #except:
-                 #   print("Incorrect Data")
-            #except:
-                #print("Something went wrong, try Again")
+            plotData = ""
+            device.writecmd(device.getvaluehandle(WRITE_CHAR), "T".encode('hex'))
+            while(True):
+                data = device.notify()
+                if(data is not None):
+                    plotData = plotData + data
+                    print(data)
+                    if data[-1] == 'E':
+                        break
 
 
 class SelectableRecycleBoxLayout(FocusBehavior, LayoutSelectionBehavior,
                                  RecycleBoxLayout):
     ''' Adds selection and focus behaviour to the view. '''
+
 
 class SelectableLabel(RecycleDataViewBehavior, Label):
     ''' Add selection support to the Label '''
@@ -347,10 +334,6 @@ class SelectableLabel(RecycleDataViewBehavior, Label):
             print("selection removed for {0}".format(rv.data[index]))
 
 
-
-import inspect
-
-
 class PlotDemo(App):
     def build(self):
         mv = MainView()
@@ -383,10 +366,8 @@ class PlotDemo(App):
         button.add_widget(reqdata)
         button.add_widget(Plot)
         root.add_widget(fl)
-        #root.add_widget(button)
 
         return root
-
 
 
 if __name__ == '__main__':
