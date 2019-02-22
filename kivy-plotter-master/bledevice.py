@@ -48,7 +48,10 @@ class BLEDevice:
         print "connecting..."
         
         # Run gatttool interactively.
-        self.gatt = pexpect.spawn("gatttool -b " + addr + " -I")
+        self.gatt = pexpect.spawn("sudo service bluetooth restart")
+        time.sleep(0.5)
+        print "DEBUG: connnecting to {0}".format(addr)
+        self.gatt = pexpect.spawn("sudo gatttool -b " + addr + " -I")
         self.gatt.expect('\[LE\]>', timeout=10)
         self.gatt.sendline('connect')
         self.gatt.expect('Connection successful.*\[LE\]>', timeout=5)

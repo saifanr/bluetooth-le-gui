@@ -46,6 +46,11 @@ class SMState(Enum):
     connected = 2
     waitingForData = 3
 
+class ButtonState(Enum):
+    connect = 1
+    disconnect = 2
+    scan = 3
+
 # als have is connected and device, how do i use those with the enum above
 # should i squash them?
 
@@ -153,8 +158,10 @@ class MainView(Widget):
     def __init__(self, **kwargs):
         super(MainView, self).__init__(**kwargs)
         self._smState = SMState.notConnected
-        self._freshData = False;
+        self._button = ButtonState.scan
+        self._freshData = False
         self._stopWaiting = threading.Event()
+        self._child = None
         self.rv.data = [{'text': str(x)} for x in AllDevices]
 
     def Populate(self):
@@ -164,8 +171,8 @@ class MainView(Widget):
     def promptDialog(self, state):
         modal = ModalView(title="Continue?", size_hint=(0.5, 0.3))
         label = Label(text="Currently waiting for Data. Do you want to disconnect?", size_hint=(1,.7))
-        btn_ok = Button(text="Yes", on_press=killChild)
-        btn_no = Button(text="No", on_press=modal.dismiss)
+        btn_ok = Button(text="Yes", on_press=self.promptDialogYes, on_release=modal.dismiss)
+        btn_no = Button(text="No", on_release=modal.dismiss)
 
         outerbox = BoxLayout(orientation='vertical')
         box = BoxLayout(spacing=10, size_hint=(1,.3), padding=[10,10,10,10]);
@@ -177,19 +184,22 @@ class MainView(Widget):
         modal.add_widget(outerbox)
         modal.open()
 
-    def killChild(self, state):
+    def promptDialogYes(self, state):
         self._stopWaiting.set()
-        self._child.join()
+        if (self._child):
+            self._child.join()
+        self._promptDialogResult = True
 
     def scan(self, state):
         if (self._smState == SMState.waitingForData):
-            cont = self.promptDialog(state)
-        else:
-            cont = True
-
-        if (not cont):
+            print "DEBUG: in scan: waitingfordata"
+            self._button = ButtonState.scan
+            self.promptDialog(state)
             return
+        else:
+            self.do_scan(state)
 
+    def do_scan(self, state):
         global AllDevices
         global device
         AllDevices = []
@@ -201,19 +211,21 @@ class MainView(Widget):
             for device in self.devices:
                 if(device['name']  != "(unknown)"):
                     AllDevices.append((device['name'], device['addr']))
+            if (len(AllDevices) == 0):
+                AllDevices = ['No Device Found']
         except:
             AllDevices = ['No Device Found']
             device = -1
         
     def connect(self,state):
         if (self._smState == SMState.waitingForData):
-            cont = self.promptDialog(state)
-        else:
-            cont = True
-
-        if (not cont):
+            self._button = ButtonState.connect
+            self.promptDialog(state)
             return
-
+        else:
+            self.do_connect(state)
+        
+    def do_connect(self, state):
         global device
         global AllDevices
         global isConnected
@@ -221,10 +233,12 @@ class MainView(Widget):
         if(device != -1 and isConnected is False):
             try:
                 device = BLEDevice(SelectedDevice)
-                AllDevices = ['Connected to {0}'.format(device['name'])]
+                print "DEBUG ..device initialized"
+                AllDevices = ['Connected']
                 isConnected = True
                 self._smState = SMState.connected
             except:
+                print "DEBUG: in exception block for connect"
                 AllDevices = ['Not able to connect']
         elif (isConnected is True):
             self.promptWithCustomString(state, 'Already Connected to {0}'.format(device['name']))
@@ -234,13 +248,13 @@ class MainView(Widget):
 
     def disconnect(self,state):
         if (self._smState == SMState.waitingForData):
-            cont = self.promptDialog(state)
-        else:
-            cont = True
-
-        if (not cont):
+            self._button = ButtonState.disconnect
+            self.promptDialog(state)
             return
-
+        else:
+            self.do_disconnect(state)
+        
+    def do_disconnect(self, state):
         global isConnected
         global device
         isConnected = False
@@ -259,7 +273,7 @@ class MainView(Widget):
         filename = "{0}.csv".format("PlotDemo")
         with open(filename, 'w') as csvFile:
             writer = csv.writer(csvFile)
-            writer.writerows(['Voltage', 'Current'] + \
+            writer.writerows([('Voltage', 'Current')] + \
                 [(self.newV[i], self.newI[i]) for i in range(len(self.newV))])
 
         csvFile.close()
@@ -349,7 +363,6 @@ class MainView(Widget):
         self.newI = []
         tolerance = 0.2
         for i in range(1,len(V)):
-            if abs(I[i] - V[i] / R) < tolerance:
                 self.newV.append(V[i])
                 self.newI.append(I[i])
 
@@ -363,16 +376,23 @@ class MainView(Widget):
         canvas.draw()
 
     def RequestData(self, state):
+        global device
+        global plotData
+        global AllDevices
+
+        print "DEBUG: in RequestData"
         if (self._smState == SMState.connected):
             self._stopWaiting.set()
 
             if (self._child):
                 self._child.join()
-
-            self._child = threading.Thread(self.processRequest, state)
+            print "DEBUG: About to start test on thread"
+            AllDevices = ["Requested Data"]
+            self._smState = SMState.waitingForData
+            print "DEBUG: changed state to waiting for data"
+            self._child = threading.Thread(target=self.processRequest, args=(state,))
             self._stopWaiting.clear()
             self._child.start()
-            self.promptWithCustomString(state, "Requested Data")
 
         elif (self._smState == SMState.notConnected):
             self.promptWithCustomString(state, "Please Connect to a device before requesting data")
@@ -383,20 +403,22 @@ class MainView(Widget):
     def processRequest(self, state):
         global device
         global plotData
+        global AllDevices
 
         start_time = time.time();
 
         if(isConnected is True):
             plotData = ""
-            AllDevices = ["Requested Data from {0}".format(device['name'])]
+            AllDevices = ["Requested Data"]
             device.writecmd(device.getvaluehandle(WRITE_CHAR), "T".encode('hex'))
 
             while(True):
                 data = device.notify()
-                if (self._stopWaiting.isSet() or (time.time() - start_time > 45)):
+                if (self._stopWaiting.isSet() or (time.time() - start_time > 145)):
                     print "DEBUG: stopped waiting"
                     self._freshData = False
                     self._smState = SMState.connected
+                    AllDevices = ['Timed Out']
                     plotData = []
                     break
 
