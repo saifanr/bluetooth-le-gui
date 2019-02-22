@@ -16,17 +16,16 @@ from kivy.uix.behaviors import FocusBehavior
 from kivy.uix.recycleview.layout import LayoutSelectionBehavior
 from kivy.uix.button import Button
 from kivy.uix.modalview import ModalView
-
+from kivy.uix.popup import Popup
 import matplotlib
 matplotlib.use('module://kivy.garden.matplotlib.backend_kivy')
 from matplotlib.figure import Figure
 from numpy import arange, sin, pi
 from kivy.app import App
-
+from kivy.uix.textinput import TextInput
 import numpy as np
 from matplotlib.mlab import griddata
-from kivy.garden.matplotlib.backend_kivy import FigureCanvas,\
-                                                NavigationToolbar2Kivy
+from kivy.garden.matplotlib.backend_kivy import FigureCanvas, NavigationToolbar2Kivy
 
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.boxlayout import BoxLayout
@@ -37,6 +36,18 @@ from kivy.graphics import Color, Line, Rectangle
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
+
+from enum import Enum
+import threading
+import time
+
+class SMState(Enum):
+    notConnected = 1
+    connected = 2
+    waitingForData = 3
+
+# als have is connected and device, how do i use those with the enum above
+# should i squash them?
 
 fig, ax = plt.subplots()
 
@@ -89,6 +100,9 @@ Builder.load_string("""
             Button:
                 text: 'Plot I-V'
                 on_release: root.PlotIV(self.state)
+            Button:
+                text: 'Save'
+                on_release: root.saveToFile(self.state)
 
         RecycleView:
             pos_hint: {'center_x': 0, 'center_y': 0}
@@ -138,22 +152,20 @@ plotData = ""
 class MainView(Widget):
     def __init__(self, **kwargs):
         super(MainView, self).__init__(**kwargs)
+        self._smState = SMState.notConnected
+        self._freshData = False;
+        self._stopWaiting = threading.Event()
         self.rv.data = [{'text': str(x)} for x in AllDevices]
 
     def Populate(self):
         self.rv.data = [{'text': str(x)} for x in AllDevices]
         print(self.rv.data )
 
-
-    def scan(self,state):
-        global AllDevices
-        global device
-        AllDevices = []
-
-        modal = ModalView(title="Just a moment", size_hint=(0.5, 0.3))
-        label = Label(text="Hello World", size_hint=(1,.7))
-        btn_ok = Button(text="Save & continue", on_press=modal.dismiss)
-        btn_no = Button(text="Discard changes", on_press=modal.dismiss)
+    def promptDialog(self, state):
+        modal = ModalView(title="Continue?", size_hint=(0.5, 0.3))
+        label = Label(text="Currently waiting for Data. Do you want to disconnect?", size_hint=(1,.7))
+        btn_ok = Button(text="Yes", on_press=killChild)
+        btn_no = Button(text="No", on_press=modal.dismiss)
 
         outerbox = BoxLayout(orientation='vertical')
         box = BoxLayout(spacing=10, size_hint=(1,.3), padding=[10,10,10,10]);
@@ -163,47 +175,117 @@ class MainView(Widget):
         outerbox.add_widget(box)
 
         modal.add_widget(outerbox)
-        modal.bind(on_dismiss=modal.dismiss)
         modal.open()
 
+    def killChild(self, state):
+        self._stopWaiting.set()
+        self._child.join()
+
+    def scan(self, state):
+        if (self._smState == SMState.waitingForData):
+            cont = self.promptDialog(state)
+        else:
+            cont = True
+
+        if (not cont):
+            return
+
+        global AllDevices
+        global device
+        AllDevices = []
+
+        
+        device = 0
+        self.devices = scanble(timeout=2)
         try:
-            device = 0
-            self.devices = scanble(timeout=2)
             for device in self.devices:
                 if(device['name']  != "(unknown)"):
                     AllDevices.append((device['name'], device['addr']))
         except:
-            AllDevices = ['No Devices Found']
+            AllDevices = ['No Device Found']
             device = -1
-
-
+        
     def connect(self,state):
+        if (self._smState == SMState.waitingForData):
+            cont = self.promptDialog(state)
+        else:
+            cont = True
+
+        if (not cont):
+            return
+
         global device
         global AllDevices
         global isConnected
+
         if(device != -1 and isConnected is False):
             try:
                 device = BLEDevice(SelectedDevice)
                 AllDevices = ['Connected to {0}'.format(device['name'])]
                 isConnected = True
+                self._smState = SMState.connected
             except:
                 AllDevices = ['Not able to connect']
-        elif(isConnected is True):
-            AllDevices = ['Connected to {0}'.format(device['name'])]
+        elif (isConnected is True):
+            self.promptWithCustomString(state, 'Already Connected to {0}'.format(device['name']))
         else:
-
             AllDevices = ['No Devices to Connect']
 
 
     def disconnect(self,state):
+        if (self._smState == SMState.waitingForData):
+            cont = self.promptDialog(state)
+        else:
+            cont = True
+
+        if (not cont):
+            return
+
         global isConnected
         global device
         isConnected = False
         global AllDevices
         AllDevices = []
         device = -1
+        self._smState = SMState.notConnected
+
+    def saveToFile(self, state):
+        if (not self._freshData):
+            self.promptWithCustomString(state, "No fresh data to save")
+            return
+
+        self._stopWaiting.set()
+        self._child.join()
+        filename = "{0}.csv".format("PlotDemo")
+        with open(filename, 'w') as csvFile:
+            writer = csv.writer(csvFile)
+            writer.writerows(['Voltage', 'Current'] + \
+                [(self.newV[i], self.newI[i]) for i in range(len(self.newV))])
+
+        csvFile.close()
+        self.promptWithCustomString(state, "File saved in PlotDemo.csv")
+
+    def promptWithCustomString(self, state, message):
+        modal = ModalView(title="Message", size_hint=(0.5, 0.3))
+        label = Label(text=message, size_hint=(1,.7))
+        btn_ok = Button(text="Okay", on_press=modal.dismiss)
+
+        outerbox = BoxLayout(orientation='vertical')
+        box = BoxLayout(spacing=10, size_hint=(1,.3), padding=[10,10,10,10]);
+        box.add_widget(btn_ok)
+        outerbox.add_widget(label)
+        outerbox.add_widget(box)
+
+        modal.add_widget(outerbox)
+        modal.open()
 
     def PlotIV(self, state):
+        if (not self._freshData):
+            self.promptWithCustomString(state, "No fresh data to plot")
+            return
+        self.plotReadyData(state)
+
+    def plotReadyData(self, state):
         plt.cla()
         X = np.random.randint(50, size=50)
         Y = np.random.randint(50, size=50)
@@ -219,6 +301,7 @@ class MainView(Widget):
                 if (plotData[i] == status):
                     if(status == 'V'):
                         pass
+
                     else:
                         if(isfloat(val)):
                             flag = False
@@ -262,15 +345,16 @@ class MainView(Widget):
                 val = val + plotData[i]
 
         R = V[0] / I[0]
-        newV = []
-        newI = []
+        self.newV = []
+        self.newI = []
         tolerance = 0.2
         for i in range(1,len(V)):
             if abs(I[i] - V[i] / R) < tolerance:
-                newV.append(V[i])
-                newI.append(I[i])
+                self.newV.append(V[i])
+                self.newI.append(I[i])
 
-        plt.scatter(newV, newI)
+        plt.scatter(self.newV, self.newI)
+
         ax.set_ylabel('Current (I)', fontsize=20)
         ax.set_title('I-V Curve', fontsize=30)
         ax.set_xlabel('Voltage (V)', fontsize=20)
@@ -278,21 +362,52 @@ class MainView(Widget):
 
         canvas.draw()
 
-
     def RequestData(self, state):
+        if (self._smState == SMState.connected):
+            self._stopWaiting.set()
+
+            if (self._child):
+                self._child.join()
+
+            self._child = threading.Thread(self.processRequest, state)
+            self._stopWaiting.clear()
+            self._child.start()
+            self.promptWithCustomString(state, "Requested Data")
+
+        elif (self._smState == SMState.notConnected):
+            self.promptWithCustomString(state, "Please Connect to a device before requesting data")
+
+        else:
+            self.promptWithCustomString(state, "Already Waiting for Data")
+
+    def processRequest(self, state):
         global device
         global plotData
+
+        start_time = time.time();
+
         if(isConnected is True):
             plotData = ""
+            AllDevices = ["Requested Data from {0}".format(device['name'])]
             device.writecmd(device.getvaluehandle(WRITE_CHAR), "T".encode('hex'))
+
             while(True):
                 data = device.notify()
+                if (self._stopWaiting.isSet() or (time.time() - start_time > 45)):
+                    print "DEBUG: stopped waiting"
+                    self._freshData = False
+                    self._smState = SMState.connected
+                    plotData = []
+                    break
+
                 if(data is not None):
                     plotData = plotData + data
                     print(data)
                     if data[-1] == 'E':
+                        self._freshData = True
+                        self._smState = SMState.connected;
+                        print "DEBUG: got all data"
                         break
-
 
 class SelectableRecycleBoxLayout(FocusBehavior, LayoutSelectionBehavior,
                                  RecycleBoxLayout):
@@ -357,6 +472,8 @@ class PlotDemo(App):
         disconnect.bind(on_release = mv.disconnect)
         reqdata = Button(text="Request Data", height=100, size_hint_y=None)
         reqdata.bind(on_release = mv.RequestData)
+        save = Button(text="Save", height=100, size_hint_y=None)
+        save.bind(on_release=mv.saveToFile)
         Plot = Button(text="Plot I-V", height=100, size_hint_y=None)
         Plot.bind(on_release = mv.PlotIV)
 
@@ -365,6 +482,7 @@ class PlotDemo(App):
         button.add_widget(disconnect)
         button.add_widget(reqdata)
         button.add_widget(Plot)
+        button.add_widget(save)
         root.add_widget(fl)
 
         return root

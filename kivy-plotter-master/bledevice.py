@@ -3,8 +3,8 @@ import pexpect
 
 
 def scanble(hci="hci0", timeout=1):
-    conn = pexpect.spawn("sudo hciconfig %s reset" % hci)
-    time.sleep(0.2)
+    conn = pexpect.spawn("sudo service bluetooth restart")
+    time.sleep(0.5)
 
     conn = pexpect.spawn("sudo timeout %d hcitool lescan" % timeout)
     time.sleep(0.2)
@@ -16,7 +16,11 @@ def scanble(hci="hci0", timeout=1):
         try:
             res = conn.expect(adr_pat)
             output += conn.after
+            print "DEBUG: found"
+            print output
         except pexpect.EOF:
+            print "DEBUG: not found"
+            print output
             break
 
     lines = re.split('\r?\n', output.strip())
@@ -35,8 +39,14 @@ class BLEDevice:
             self.connect(addr)
             self.getcharacteristics()
 
+    def __del__(self):
+        if self.gatt is not None:
+            print "DEBUG: closed the pexpect instance"
+            self.gatt.close()
+
     def connect(self, addr):
         print "connecting..."
+        
         # Run gatttool interactively.
         self.gatt = pexpect.spawn("gatttool -b " + addr + " -I")
         self.gatt.expect('\[LE\]>', timeout=10)
@@ -51,14 +61,12 @@ class BLEDevice:
         self.gatt.sendline('characteristics')
         time.sleep(0.2)
         ch_pat='handle: (\S+), char properties: (\S+), char value handle: (\S+), uuid: (\S+)'
-        #self.gatt.expect('\[LE\]>')
         while True:
             try:
                 self.gatt.expect(ch_pat, timeout=2)
                 ch_tuple = self.gatt.match.groups()
                 uuid = ch_tuple[3][4:8]
                 self.characteristics[uuid]=ch_tuple
-                #print ch_tuple
             except pexpect.TIMEOUT:
                 break
         print "got all characteristics."
@@ -73,7 +81,6 @@ class BLEDevice:
 
     def writecmd(self, handle, value):
         cmd = "char-write-cmd 0x%04x %s" % (handle, value)
-        #cmd = "char-write-cmd 0x%02x %s" % (handle, value.encode('hex'))
         self.gatt.sendline(cmd)
 
     def notify(self):
@@ -85,6 +92,6 @@ class BLEDevice:
             if num == 0:
                 hxstr = self.gatt.after.split()[3:]
                 handle = long(float.fromhex(hxstr[0]))
-                #print "Received: ", hxstr[2:]
                 return "".join(chr(int(x,16)) for x in hxstr[2:])
         return None
+
