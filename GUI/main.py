@@ -1,5 +1,4 @@
 from kivy.app import App
-from plot import Plot, SeriesController
 from kivy.lang import Builder
 from kivy.uix.widget import Widget
 from kivy.properties import ObjectProperty
@@ -347,7 +346,6 @@ class MainView(Widget):
                         if(isfloat(val)):
                             status = 'I'
                             V.append(float(val))
-                            #corrupt = False
                         else:
                             corrupt = True
                             status = 'I'
@@ -361,7 +359,6 @@ class MainView(Widget):
         R = V[0] / I[0]
         self.newV = []
         self.newI = []
-        tolerance = 0.2
         for i in range(1,len(V)):
                 self.newV.append(V[i])
                 self.newI.append(I[i])
